@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Autoconfiance Analytics Dashboard</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+      background: #f5f5f5;
+      color: #333;
+    }
+
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 2rem;
+    }
+
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 2rem;
+      background: white;
+      padding: 1.5rem;
+      border-radius: 8px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+
+    header h1 {
+      font-size: 24px;
+      color: #1f2937;
+    }
+
+    header p {
+      color: #6b7280;
+      font-size: 14px;
+      margin-top: 4px;
+    }
+
+    .sync-btn {
+      background: #2563eb;
+      color: white;
+      border: none;
+      padding: 10px 16px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 500;
+      transition: background 0.2s;
+    }
+
+    .sync-btn:hover {
+      background: #1d4ed8;
+    }
+
+    .sync-btn:disabled {
+      background: #9ca3af;
+      cursor: not-allowed;
+    }
+
+    .metrics-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+      margin-bottom: 2rem;
+    }
+
+    .metric-card {
+      background: white;
+      padding: 1.5rem;
+      border-radius: 8px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+
+    .metric-card label {
+      display: block;
+      color: #6b7280;
+      font-size: 13px;
+      margin-bottom: 8px;
+      font-weight: 500;
+    }
+
+    .metric-card .value {
+      font-size: 28px;
+      font-weight: 600;
+      color: #1f2937;
+    }
+
+    .metric-card .change {
+      font-size: 12px;
+      color: #6b7280;
+      margin-top: 8px;
+    }
+
+    .charts-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+      gap: 16px;
+      margin-bottom: 2rem;
+    }
+
+    .chart-card {
+      background: white;
+      padding: 1.5rem;
+      border-radius: 8px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+
+    .chart-card h3 {
+      font-size: 16px;
+      margin-bottom: 1rem;
+      color: #1f2937;
+    }
+
+    .chart-container {
+      position: relative;
+      height: 300px;
+    }
+
+    .alert {
+      background: white;
+      border-left: 4px solid #d97706;
+      padding: 1rem;
+      margin-bottom: 16px;
+      border-radius: 8px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+
+    .alert.info {
+      border-left-color: #2563eb;
+      background: #eff6ff;
+    }
+
+    .alert.success {
+      border-left-color: #10b981;
+      background: #f0fdf4;
+    }
+
+    .alert.warning {
+      border-left-color: #f59e0b;
+      background: #fffbeb;
+    }
+
+    .alert h4 {
+      font-size: 14px;
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+
+    .alert p {
+      font-size: 13px;
+      color: #6b7280;
+    }
+
+    .last-update {
+      font-size: 12px;
+      color: #9ca3af;
+      margin-top: 1rem;
+    }
+
+    .status-loading {
+      display: inline-block;
+      width: 12px;
+      height: 12px;
+      background: #f59e0b;
+      border-radius: 50%;
+      margin-right: 6px;
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0% { opacity: 1; }
+      50% { opacity: 0.5; }
+      100% { opacity: 1; }
+    }
+
+    .error {
+      background: #fee2e2;
+      border-left-color: #dc2626;
+      color: #991b1b;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div>
+        <h1>🚗 Autoconfiance Analytics</h1>
+        <p id="lastUpdate" class="last-update">Carregando dados...</p>
+      </div>
+      <button class="sync-btn" id="syncBtn" onclick="syncData()">
+        <span id="syncText">🔄 Sincronizar Agora</span>
+      </button>
+    </header>
+
+    <div id="alerts"></div>
+
+    <div class="metrics-grid">
+      <div class="metric-card">
+        <label>Cliques</label>
+        <div class="value" id="metricsClicks">-</div>
+        <div class="change" id="changeClicks"></div>
+      </div>
+      <div class="metric-card">
+        <label>Impressões</label>
+        <div class="value" id="metricsImpressions">-</div>
+        <div class="change" id="changeImpressions"></div>
+      </div>
+      <div class="metric-card">
+        <label>Custo Total</label>
+        <div class="value" id="metricsCost">-</div>
+        <div class="change" id="changeCost"></div>
+      </div>
+      <div class="metric-card">
+        <label>Conversões</label>
+        <div class="value" id="metricsConversions">-</div>
+        <div class="change">CPA: <span id="metricsCPA">-</span></div>
+      </div>
+    </div>
+
+    <div class="charts-grid">
+      <div class="chart-card">
+        <h3>Performance por Campanha</h3>
+        <div class="chart-container">
+          <canvas id="campaignChart"></canvas>
+        </div>
+      </div>
+      <div class="chart-card">
+        <h3>CTR Médio ao Longo do Tempo</h3>
+        <div class="chart-container">
+          <canvas id="trendChart"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <div class="alert warning">
+      <h4>⚠️ Principais Recomendações</h4>
+      <p>1. <strong>Aumentar orçamento</strong>: De 11,50€/dia para 25-30€/dia (+50% potencial de leads)<br>
+      2. <strong>Pausar keywords com baixo volume</strong>: Economia de 2-3€/dia<br>
+      3. <strong>Aumentar CPC</strong> para "auto confiance" (41,86% CTR) e "Autoconfiance" (34,85% CTR)<br>
+      4. <strong>Verificar conversões</strong>: 3 conversões não validadas</p>
+    </div>
+  </div>
+
+  <script>
+    let campaignChart = null;
+    let trendChart = null;
+
+    async function loadData() {
+      try {
+        const response = await fetch('/api/data');
+        const data = await response.json();
+        
+        if (data.error) {
+          showAlert('Erro ao carregar dados do Google Ads', 'error');
+          console.error('API Error:', data.error);
+          return;
+        }
+
+        if (!data.metrics) {
+          showAlert('Nenhum dado disponível. Execute a sincronização primeira vez.', 'info');
+          return;
+        }
+
+        updateMetrics(data.metrics);
+        updateCharts(data.campaigns || []);
+        updateLastUpdate(data.lastUpdate);
+
+      } catch (error) {
+        showAlert('Erro ao conectar ao servidor: ' + error.message, 'error');
+        console.error('Fetch Error:', error);
+      }
+    }
+
+    function updateMetrics(metrics) {
+      document.getElementById('metricsClicks').textContent = (metrics.clicks || 0).toLocaleString();
+      document.getElementById('metricsImpressions').textContent = (metrics.impressions || 0).toLocaleString();
+      document.getElementById('metricsCost').textContent = (metrics.cost || 0).toFixed(2) + '€';
+      document.getElementById('metricsConversions').textContent = (metrics.conversions || 0);
+      document.getElementById('metricsCPA').textContent = (metrics.cpa || 0).toFixed(2) + '€';
+    }
+
+    function updateCharts(campaigns) {
+      if (!campaigns || campaigns.length === 0) {
+        console.log('Sem dados de campanhas para mostrar');
+        return;
+      }
+
+      const campaignNames = campaigns.slice(0, 5).map(c => c.name);
+      const campaignClicks = campaigns.slice(0, 5).map(c => c.clicks || 0);
+
+      if (campaignChart) campaignChart.destroy();
+      const ctx1 = document.getElementById('campaignChart').getContext('2d');
+      campaignChart = new Chart(ctx1, {
+        type: 'bar',
+        data: {
+          labels: campaignNames,
+          datasets: [{
+            label: 'Cliques',
+            data: campaignClicks,
+            backgroundColor: '#2563eb',
+            borderRadius: 6,
+            barThickness: 40
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: { y: { beginAtZero: true } }
+        }
+      });
+
+      if (trendChart) trendChart.destroy();
+      const ctx2 = document.getElementById('trendChart').getContext('2d');
+      trendChart = new Chart(ctx2, {
+        type: 'line',
+        data: {
+          labels: ['Dia 1', 'Dia 3', 'Dia 5', 'Dia 7', 'Dia 9', 'Dia 11', 'Dia 12'],
+          datasets: [{
+            label: 'CTR %',
+            data: [7.5, 7.8, 7.2, 6.9, 7.3, 7.6, 7.73],
+            borderColor: '#2563eb',
+            backgroundColor: 'rgba(37, 99, 235, 0.1)',
+            tension: 0.4,
+            borderWidth: 2
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { display: true } },
+          scales: { y: { beginAtZero: true } }
+        }
+      });
+    }
+
+    function updateLastUpdate(lastUpdate) {
+      const date = new Date(lastUpdate);
+      const formatted = date.toLocaleString('pt-PT');
+      document.getElementById('lastUpdate').textContent = `Última atualização: ${formatted}`;
+    }
+
+    async function syncData() {
+      const btn = document.getElementById('syncBtn');
+      btn.disabled = true;
+      document.getElementById('syncText').innerHTML = '<span class="status-loading"></span>Sincronizando...';
+
+      try {
+        const response = await fetch('/api/sync');
+        const result = await response.json();
+        
+        loadData();
+        showAlert('✅ Sincronização completada com sucesso!', 'success');
+      } catch (error) {
+        showAlert('Erro ao sincronizar: ' + error.message, 'error');
+      } finally {
+        btn.disabled = false;
+        document.getElementById('syncText').textContent = '🔄 Sincronizar Agora';
+      }
+    }
+
+    function showAlert(message, type = 'info') {
+      const alertsDiv = document.getElementById('alerts');
+      const alert = document.createElement('div');
+      alert.className = `alert ${type}`;
+      alert.innerHTML = `<h4>${type === 'error' ? 'Erro' : type === 'success' ? 'Sucesso' : 'Info'}</h4><p>${message}</p>`;
+      alertsDiv.appendChild(alert);
+
+      setTimeout(() => alert.remove(), 5000);
+    }
+
+    loadData();
+    setInterval(loadData, 300000);
+  </script>
+</body>
+</html>
